@@ -6,8 +6,37 @@ from fastapi import FastAPI
 from app.db import get_connection
 from datetime import datetime
 from pathlib import Path
+from app.anomaly_detector import detect_anomaly
 
 app = FastAPI(title="Database Performance Monitor")
+
+RECOMMENDATIONS = {
+    "healthy": [
+        "No major performance issues detected.",
+        "Continue periodic monitoring."
+    ],
+    "high_cpu": [
+        "High CPU usage detected.",
+        "Check expensive queries or background processes."
+    ],
+    "high_memory": [
+        "High memory usage detected.",
+        "Check large result sets or memory-heavy operations."
+    ],
+    "high_connections": [
+        "High number of database connections detected.",
+        "Check if idle connections are being closed correctly."
+    ],
+    "slow_queries": [
+        "Slow queries detected.",
+        "Consider adding indexes on frequently filtered columns."
+    ],
+    "critical": [
+        "Critical database performance situation detected.",
+        "Investigate slow queries and system resource usage immediately.",
+        "Reduce database load and check active connections."
+    ]
+}
 
 def collect_and_store_metrics():
     conn = get_connection()
@@ -147,8 +176,12 @@ async def lifespan(app: FastAPI):
     yield
     task.cancel()
 
-app = FastAPI(
-    title="Database Performance Monitor",
-    lifespan=lifespan
-)
-    
+@app.get("/ai-insights")
+def ai_insights():
+    current_metrics = collect_and_store_metrics()
+    anomaly_result = detect_anomaly(current_metrics)
+
+    return {
+        "current_metrics": current_metrics,
+        "ai_analysis": anomaly_result
+    }
