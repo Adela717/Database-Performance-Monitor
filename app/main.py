@@ -10,34 +10,6 @@ from app.anomaly_detector import detect_anomaly
 
 app = FastAPI(title="Database Performance Monitor")
 
-RECOMMENDATIONS = {
-    "healthy": [
-        "No major performance issues detected.",
-        "Continue periodic monitoring."
-    ],
-    "high_cpu": [
-        "High CPU usage detected.",
-        "Check expensive queries or background processes."
-    ],
-    "high_memory": [
-        "High memory usage detected.",
-        "Check large result sets or memory-heavy operations."
-    ],
-    "high_connections": [
-        "High number of database connections detected.",
-        "Check if idle connections are being closed correctly."
-    ],
-    "slow_queries": [
-        "Slow queries detected.",
-        "Consider adding indexes on frequently filtered columns."
-    ],
-    "critical": [
-        "Critical database performance situation detected.",
-        "Investigate slow queries and system resource usage immediately.",
-        "Reduce database load and check active connections."
-    ]
-}
-
 def collect_and_store_metrics():
     conn = get_connection()
     cursor = conn.cursor()
@@ -87,6 +59,7 @@ def collect_and_store_metrics():
         history = []
 
     history.append(metrics)
+    history = history[-500:]
 
     with open(data_file, "w") as file:
         json.dump(history, file, indent=4)
@@ -184,4 +157,33 @@ def ai_insights():
     return {
         "current_metrics": current_metrics,
         "ai_analysis": anomaly_result
+    }
+
+@app.get("/history")
+def get_history():
+    data_file = Path("data/metrics.json")
+
+    if not data_file.exists():
+        return {
+            "count": 0,
+            "history": []
+        }
+
+    with open(data_file, "r") as file:
+        history = json.load(file)
+
+    chart_data = [
+        {
+            "timestamp": item["timestamp"],
+            "cpu_usage_percent": item["cpu_usage_percent"],
+            "memory_usage_percent": item["memory_usage_percent"],
+            "active_connections": item["active_connections"],
+            "slow_queries_count": item["slow_queries_count"]
+        }
+        for item in history
+    ]
+
+    return {
+        "count": len(chart_data),
+        "history": chart_data
     }
