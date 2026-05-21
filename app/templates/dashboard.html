@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Database Performance Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+            background: #eaf2d7;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px 14px;
+            cursor: pointer;
+        }
+
+        .card {
+            background: white;
+            padding: 16px;
+            margin-top: 16px;
+            border-radius: 8px;
+        }
+
+        .line {
+            background: #b3dee2;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+        }
+
+        .label {
+            font-weight: bold;
+        }
+
+        canvas {
+            background: white;
+            margin-top: 20px;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Database Performance Monitor</h1>
+    <p>Simple dashboard for PostgreSQL metrics and AI anomaly detection.</p>
+
+    <div class="card">
+        <button onclick="callEndpoint('/metrics')">Collect Metrics</button>
+        <button onclick="callEndpoint('/active-connections')">Active Connections</button>
+        <button onclick="callEndpoint('/slow-queries')">Slow Queries</button>
+        <button onclick="callEndpoint('/ai-insights')">AI Insights</button>
+        <button onclick="loadHistory()">Load History Charts</button>
+    </div>
+
+    <div class="card" id="responseCard" style="display: none;">
+        <h2>Response</h2>
+        <div id="output"></div>
+    </div>
+
+    <div class="card" id="historyCard" style="display: none;">
+        <h2>History Charts</h2>
+        <canvas id="cpuChart"></canvas>
+        <canvas id="memoryChart"></canvas>
+        <canvas id="connectionsChart"></canvas>
+        <canvas id="slowQueriesChart"></canvas>
+    </div>
+
+    <script>
+        let charts = [];
+
+        async function callEndpoint(endpoint) {
+            document.getElementById("historyCard").style.display = "none";
+            document.getElementById("responseCard").style.display = "block";
+
+            const response = await fetch(endpoint);
+            const data = await response.json();
+
+            document.getElementById("output").innerHTML = formatResponse(data);
+        }
+
+        function formatResponse(data) {
+            let html = "";
+
+            if (data.timestamp) {
+                html += line("Timestamp", `Metrics were collected at ${data.timestamp}.`);
+            }
+
+            if (data.database_connection) {
+                html += line("Database connection", `The database connection was ${data.database_connection}.`);
+            }
+
+            if (data.cpu_usage_percent !== undefined) {
+                html += line("CPU usage", `CPU usage is ${data.cpu_usage_percent}%.`);
+            }
+
+            if (data.memory_usage_percent !== undefined) {
+                html += line("Memory usage", `Memory usage is ${data.memory_usage_percent}%.`);
+            }
+
+            if (data.total_memory_gb !== undefined) {
+                html += line("Total memory", `The system has ${data.total_memory_gb} GB of RAM.`);
+            }
+
+            if (data.used_memory_gb !== undefined) {
+                html += line("Used memory", `${data.used_memory_gb} GB of RAM are currently used.`);
+            }
+
+            if (data.available_memory_gb !== undefined) {
+                html += line("Available memory", `${data.available_memory_gb} GB of RAM are available.`);
+            }
+
+            if (data.active_connections !== undefined) {
+                html += line("Active connections", `There are ${data.active_connections} active PostgreSQL connections.`);
+            }
+
+            if (data.slow_queries_count !== undefined) {
+                html += line("Slow queries", `${data.slow_queries_count} slow queries were detected.`);
+            }
+
+            if (data.slow_queries && data.slow_queries.length > 0) {
+                data.slow_queries.forEach((query, index) => {
+                    html += line(
+                        `Slow query ${index + 1}`,
+                        `Process ${query.pid} has been running for ${query.duration}. Query: ${query.query}`
+                    );
+                });
+            }
+
+            if (data.current_metrics) {
+                html += "<h3>Current metrics</h3>";
+                html += formatResponse(data.current_metrics);
+            }
+
+            if (data.ai_analysis) {
+                html += "<h3>AI analysis</h3>";
+
+                if (data.ai_analysis.status) {
+                    html += line("Analysis status", `The AI analysis status is ${data.ai_analysis.status}.`);
+                }
+
+                if (data.ai_analysis.is_anomaly !== undefined) {
+                    const message = data.ai_analysis.is_anomaly
+                        ? "An anomaly was detected."
+                        : "No anomaly was detected.";
+
+                    html += line("Anomaly result", message);
+                }
+
+                if (data.ai_analysis.anomaly_score !== undefined) {
+                    html += line("Anomaly score", `The anomaly score is ${data.ai_analysis.anomaly_score.toFixed(4)}.`);
+                }
+
+                if (data.ai_analysis.interpretation) {
+                    html += "<h3>Recommendations</h3>";
+                    data.ai_analysis.interpretation.forEach(item => {
+                        html += line("Recommendation", item);
+                    });
+                }
+            }
+
+            if (html === "") {
+                html = line("Response", "No formatted fields were found.");
+            }
+
+            return html;
+        }
+
+        function line(label, text) {
+            return `
+                <div class="line">
+                    <span class="label">${label}:</span>
+                    ${text}
+                </div>
+            `;
+        }
+
+        async function loadHistory() {
+            document.getElementById("responseCard").style.display = "none";
+            document.getElementById("historyCard").style.display = "block";
+
+            const response = await fetch("/history");
+            const data = await response.json();
+            const history = data.history;
+
+            const labels = history.map(item => item.timestamp);
+            const cpu = history.map(item => item.cpu_usage_percent);
+            const memory = history.map(item => item.memory_usage_percent);
+            const connections = history.map(item => item.active_connections);
+            const slowQueries = history.map(item => item.slow_queries_count);
+
+            charts.forEach(chart => chart.destroy());
+            charts = [];
+
+            charts.push(createChart("cpuChart", "CPU Usage (%)", labels, cpu));
+            charts.push(createChart("memoryChart", "Memory Usage (%)", labels, memory));
+            charts.push(createChart("connectionsChart", "Active Connections", labels, connections));
+            charts.push(createChart("slowQueriesChart", "Slow Queries", labels, slowQueries));
+        }
+
+        function createChart(canvasId, label, labels, values) {
+            const ctx = document.getElementById(canvasId);
+
+            return new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

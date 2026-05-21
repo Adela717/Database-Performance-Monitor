@@ -7,8 +7,12 @@ from app.db import get_connection
 from datetime import datetime
 from pathlib import Path
 from app.anomaly_detector import detect_anomaly
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+from fastapi import Request
 
 app = FastAPI(title="Database Performance Monitor")
+templates = Jinja2Templates(directory="app/templates")
 
 def collect_and_store_metrics():
     conn = get_connection()
@@ -187,3 +191,10 @@ def get_history():
         "count": len(chart_data),
         "history": chart_data
     }
+
+@app.get("/dashboard", response_class=HTMLResponse)
+def dashboard(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html"
+    )
