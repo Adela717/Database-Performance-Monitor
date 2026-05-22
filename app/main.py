@@ -11,7 +11,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from fastapi import Request
 
-app = FastAPI(title="Database Performance Monitor")
 templates = Jinja2Templates(directory="app/templates")
 
 def collect_and_store_metrics():
@@ -32,15 +31,13 @@ def collect_and_store_metrics():
     cursor.close()
     conn.close()
 
-    mem = psutil.virtual_memory()
+    cpu = cpu_usage()["cpu_usage_percent"]
+    memory = memory_usage()["memory_usage_mb"]
 
     metrics = {
         "timestamp": datetime.now().isoformat(),
-        "cpu_usage_percent": psutil.cpu_percent(interval=1),
-        "memory_usage_percent": mem.percent,
-        "total_memory_gb": round(mem.total / (1024 ** 3), 2),
-        "used_memory_gb": round(mem.used / (1024 ** 3), 2),
-        "available_memory_gb": round(mem.available / (1024 ** 3), 2),
+        "cpu_usage_percent": cpu,
+        "memory_usage_mb": memory,
         "active_connections": active_connections_count,
         "slow_queries_count": len(slow_query_rows),
         "slow_queries": [
@@ -70,6 +67,14 @@ def collect_and_store_metrics():
 
     return metrics
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(periodic_metrics_collection())
+    yield
+    task.cancel()
+
+app = FastAPI(title="Database Performance Monitor", lifespan=lifespan)
+
 @app.get("/")
 def home():
     return {"message": "Database Performance Monitor is running"}
@@ -92,21 +97,41 @@ def active_connections():
 
 @app.get("/cpu-usage")
 def cpu_usage():
-	cpu_usage = psutil.cpu_percent(interval=1)
-	return {
-        "database_connection": "successful",
-        "percantage_of_cpu_usage": cpu_usage
+    cpu_usage = 0
+
+    for process in psutil.process_iter(["name", "cpu_percent"]):
+        try:
+            process_name = process.info["name"]
+
+            if process_name and "postgres" in process_name.lower():
+                cpu_usage += process.cpu_percent(interval=0.1)
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    
+    cpu_usage = cpu_usage / psutil.cpu_count()
+    return {
+        "cpu_usage_percent": cpu_usage
     }
 
 @app.get("/memory-usage")
-def memory():
-    mem = psutil.virtual_memory()
+def memory_usage():
+    memory_usage_bytes = 0
+
+    for process in psutil.process_iter(["name", "memory_info"]):
+        try:
+            process_name = process.info["name"]
+
+            if process_name and "postgres" in process_name.lower():
+                memory_usage_bytes += process.info["memory_info"].rss
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+    memory_usage_mb = round(memory_usage_bytes / (1024 ** 2), 2)
 
     return {
-        "memory_usage_percent": mem.percent,
-        "total_memory_gb": round(mem.total / (1024 ** 3), 2),
-        "used_memory_gb": round(mem.used / (1024 ** 3), 2),
-        "available_memory_gb": round(mem.available / (1024 ** 3), 2)
+        "memory_usage_mb": memory_usage_mb
     }
 
 @app.get("/slow-queries")
@@ -147,12 +172,6 @@ async def periodic_metrics_collection():
         collect_and_store_metrics()
         await asyncio.sleep(20)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    task = asyncio.create_task(periodic_metrics_collection())
-    yield
-    task.cancel()
-
 @app.get("/ai-insights")
 def ai_insights():
     current_metrics = collect_and_store_metrics()
@@ -180,7 +199,7 @@ def get_history():
         {
             "timestamp": item["timestamp"],
             "cpu_usage_percent": item["cpu_usage_percent"],
-            "memory_usage_percent": item["memory_usage_percent"],
+            "memory_usage_mb": item["memory_usage_mb"],
             "active_connections": item["active_connections"],
             "slow_queries_count": item["slow_queries_count"]
         }

@@ -49,6 +49,8 @@
 
     <div class="card">
         <button onclick="callEndpoint('/metrics')">Collect Metrics</button>
+        <button onclick="callEndpoint('/cpu-usage')">CPU Usage</button>
+        <button onclick="callEndpoint('/memory-usage')">Memory Usage</button>
         <button onclick="callEndpoint('/active-connections')">Active Connections</button>
         <button onclick="callEndpoint('/slow-queries')">Slow Queries</button>
         <button onclick="callEndpoint('/ai-insights')">AI Insights</button>
@@ -84,32 +86,16 @@
         function formatResponse(data) {
             let html = "";
 
-            if (data.timestamp) {
+            if (data.timestamp !== undefined) {
                 html += line("Timestamp", `Metrics were collected at ${data.timestamp}.`);
             }
 
-            if (data.database_connection) {
-                html += line("Database connection", `The database connection was ${data.database_connection}.`);
-            }
-
             if (data.cpu_usage_percent !== undefined) {
-                html += line("CPU usage", `CPU usage is ${data.cpu_usage_percent}%.`);
+                html += line("CPU usage", `PostgreSQL is using ${Number(data.cpu_usage_percent).toFixed(2)}% CPU.`);
             }
 
-            if (data.memory_usage_percent !== undefined) {
-                html += line("Memory usage", `Memory usage is ${data.memory_usage_percent}%.`);
-            }
-
-            if (data.total_memory_gb !== undefined) {
-                html += line("Total memory", `The system has ${data.total_memory_gb} GB of RAM.`);
-            }
-
-            if (data.used_memory_gb !== undefined) {
-                html += line("Used memory", `${data.used_memory_gb} GB of RAM are currently used.`);
-            }
-
-            if (data.available_memory_gb !== undefined) {
-                html += line("Available memory", `${data.available_memory_gb} GB of RAM are available.`);
+            if (data.memory_usage_mb !== undefined) {
+                html += line("Memory usage", `PostgreSQL is using ${Number(data.memory_usage_mb).toFixed(2)} MB of memory.`);
             }
 
             if (data.active_connections !== undefined) {
@@ -124,22 +110,18 @@
                 data.slow_queries.forEach((query, index) => {
                     html += line(
                         `Slow query ${index + 1}`,
-                        `Process ${query.pid} has been running for ${query.duration}. Query: ${query.query}`
+                        `Process ${query.pid} has been running for ${query.duration}.`
                     );
                 });
             }
 
-            if (data.current_metrics) {
+            if (data.current_metrics !== undefined) {
                 html += "<h3>Current metrics</h3>";
                 html += formatResponse(data.current_metrics);
             }
 
-            if (data.ai_analysis) {
+            if (data.ai_analysis !== undefined) {
                 html += "<h3>AI analysis</h3>";
-
-                if (data.ai_analysis.status) {
-                    html += line("Analysis status", `The AI analysis status is ${data.ai_analysis.status}.`);
-                }
 
                 if (data.ai_analysis.is_anomaly !== undefined) {
                     const message = data.ai_analysis.is_anomaly
@@ -150,11 +132,12 @@
                 }
 
                 if (data.ai_analysis.anomaly_score !== undefined) {
-                    html += line("Anomaly score", `The anomaly score is ${data.ai_analysis.anomaly_score.toFixed(4)}.`);
+                    html += line("Anomaly score", `The anomaly score is ${Number(data.ai_analysis.anomaly_score).toFixed(4)}.`);
                 }
 
-                if (data.ai_analysis.interpretation) {
+                if (data.ai_analysis.interpretation !== undefined) {
                     html += "<h3>Recommendations</h3>";
+
                     data.ai_analysis.interpretation.forEach(item => {
                         html += line("Recommendation", item);
                     });
@@ -187,7 +170,7 @@
 
             const labels = history.map(item => item.timestamp);
             const cpu = history.map(item => item.cpu_usage_percent);
-            const memory = history.map(item => item.memory_usage_percent);
+            const memory = history.map(item => item.memory_usage_mb);
             const connections = history.map(item => item.active_connections);
             const slowQueries = history.map(item => item.slow_queries_count);
 
@@ -195,7 +178,7 @@
             charts = [];
 
             charts.push(createChart("cpuChart", "CPU Usage (%)", labels, cpu));
-            charts.push(createChart("memoryChart", "Memory Usage (%)", labels, memory));
+            charts.push(createChart("memoryChart", "Memory Usage (MB)", labels, memory));
             charts.push(createChart("connectionsChart", "Active Connections", labels, connections));
             charts.push(createChart("slowQueriesChart", "Slow Queries", labels, slowQueries));
         }

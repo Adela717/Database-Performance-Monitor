@@ -6,7 +6,7 @@ from sklearn.ensemble import IsolationForest
 
 FEATURES = [
     "cpu_usage_percent",
-    "memory_usage_percent",
+    "memory_usage_mb",
     "active_connections",
     "slow_queries_count"
 ]
@@ -26,7 +26,7 @@ def extract_features(metrics_list):
     return [
         [
             item["cpu_usage_percent"],
-            item["memory_usage_percent"],
+            item["memory_usage_mb"],
             item["active_connections"],
             item["slow_queries_count"]
         ]
@@ -55,7 +55,7 @@ def detect_anomaly(current_metrics):
 
     current_data = [[
         current_metrics["cpu_usage_percent"],
-        current_metrics["memory_usage_percent"],
+        current_metrics["memory_usage_mb"],
         current_metrics["active_connections"],
         current_metrics["slow_queries_count"]
     ]]
@@ -83,7 +83,7 @@ def interpret_anomaly(current_metrics, history, is_anomaly):
     recent_history = history[-20:]
 
     avg_cpu = mean(item["cpu_usage_percent"] for item in recent_history)
-    avg_memory = mean(item["memory_usage_percent"] for item in recent_history)
+    avg_memory = mean(item["memory_usage_mb"] for item in recent_history)
     avg_connections = mean(item["active_connections"] for item in recent_history)
     avg_slow_queries = mean(item["slow_queries_count"] for item in recent_history)
 
@@ -92,7 +92,7 @@ def interpret_anomaly(current_metrics, history, is_anomaly):
     if current_metrics["cpu_usage_percent"] > avg_cpu * 1.5:
         recommendations.append("CPU usage is significantly higher than the recent average.")
 
-    if current_metrics["memory_usage_percent"] > avg_memory * 1.3:
+    if current_metrics["memory_usage_mb"] > avg_memory * 1.3:
         recommendations.append("Memory usage is significantly higher than the recent average.")
 
     if current_metrics["active_connections"] > avg_connections * 1.5:
