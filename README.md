@@ -55,7 +55,8 @@ The dashboard allows:
 
 ### Setup instructions
 
-Clone the repository: 
+Clone the repository:
+
 git clone https://github.com/Adela717/Database-Performance-Monitor.git
 
 cd Database-Performance-Monitor
