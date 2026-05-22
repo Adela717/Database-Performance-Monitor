@@ -61,11 +61,13 @@ git clone https://github.com/Adela717/Database-Performance-Monitor.git
 cd Database-Performance-Monitor
 
 Create virtual environment:
+
 python -m venv .venv
 
 .\.venv\Scripts\activate
 
 Install dependencies:
+
 pip install -r requirements.txt
 
 Create a .env file:
