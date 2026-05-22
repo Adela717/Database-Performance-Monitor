@@ -57,10 +57,12 @@ The dashboard allows:
 
 Clone the repository: 
 git clone https://github.com/Adela717/Database-Performance-Monitor.git
+
 cd Database-Performance-Monitor
 
 Create virtual environment:
 python -m venv .venv
+
 .\.venv\Scripts\activate
 
 Install dependencies:
@@ -68,6 +70,7 @@ pip install -r requirements.txt
 
 Create a .env file:
 DB_HOST=localhost
+
 DB_PORT=5432
 DB_NAME=postgres
 DB_USER=postgres
