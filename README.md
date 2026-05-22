@@ -61,17 +61,21 @@ git clone https://github.com/Adela717/Database-Performance-Monitor.git
 
 cd Database-Performance-Monitor
 
+
 Create virtual environment:
 
 python -m venv .venv
 
 .\.venv\Scripts\activate
 
+
 Install dependencies:
 
 pip install -r requirements.txt
 
+
 Create a .env file:
+
 DB_HOST=localhost
 
 DB_PORT=5432
@@ -82,8 +86,11 @@ DB_USER=postgres
 
 DB_PASSWORD=your_password
 
+
 Run the application:
+
 python -m uvicorn app.main:app --reload
+
 
 Access the Application:
 - Dashboard: http://127.0.0.1:8000/dashboard
